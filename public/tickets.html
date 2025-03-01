@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Tickets</title>
+</head>
+<body>
+    <h1>Gestion des Tickets</h1>
+
+    <h2>Créer un nouveau ticket</h2>
+    <form id="ticketForm">
+        <label for="title">Titre :</label>
+        <input type="text" id="title" required>
+        <label for="description">Description :</label>
+        <textarea id="description" required></textarea>
+        <button type="submit">Créer</button>
+    </form>
+
+    <h2>Liste des tickets</h2>
+    <ul id="ticketList"></ul>
+
+    <script>
+        async function fetchTickets() {
+            const token = localStorage.getItem("token");
+            const response = await fetch("http://localhost:5000/api/tickets", {
+                headers: { "Authorization": token }
+            });
+
+            const tickets = await response.json();
+            const list = document.getElementById("ticketList");
+            list.innerHTML = "";
+
+            tickets.forEach(ticket => {
+                const li = document.createElement("li");
+                li.textContent = `${ticket.title} - ${ticket.status}`;
+                list.appendChild(li);
+            });
+        }
+
+        document.getElementById("ticketForm").addEventListener("submit", async function(event) {
+            event.preventDefault();
+            
+            const token = localStorage.getItem("token");
+            const title = document.getElementById("title").value;
+            const description = document.getElementById("description").value;
+
+            const response = await fetch("http://localhost:5000/api/tickets", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": token
+                },
+                body: JSON.stringify({ title, description })
+            });
+
+            if (response.ok) {
+                alert("Ticket créé !");
+                fetchTickets();
+            } else {
+                alert("Erreur lors de la création");
+            }
+        });
+
+        fetchTickets();
+    </script>
+</body>
+</html>

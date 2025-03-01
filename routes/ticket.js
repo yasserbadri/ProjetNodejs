@@ -54,7 +54,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Attribuer un ticket à un agent de support
-router.put('/:id/assign', authenticateToken, async (req, res) => {
+/*router.put('/:id/assign', authenticateToken, async (req, res) => {
     try {
         const { agentId } = req.body; // ID de l'agent de support
         const ticketId = req.params.id; // ID du ticket
@@ -71,6 +71,40 @@ router.put('/:id/assign', authenticateToken, async (req, res) => {
             { assignedTo: agentId, status: 'En cours' }, // Mettre à jour le statut également
             { new: true }
         ).populate('assignedTo', 'name email'); // Récupérer les détails de l'agent
+
+        if (!updatedTicket) {
+            return res.status(404).json({ message: 'Ticket non trouvé' });
+        }
+
+        res.json(updatedTicket);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+*/
+
+router.put('/:id/assign', authenticateToken, async (req, res) => {
+    try {
+        const { agentId } = req.body;
+        const ticketId = req.params.id;
+
+        // Vérifier si l'utilisateur est ADMIN
+        if (req.user.role !== "admin") {
+            return res.status(403).json({ message: "Seul un administrateur peut assigner des tickets." });
+        }
+
+        // Vérifier si l'agent existe et a le rôle "agent"
+        const agent = await User.findById(agentId);
+        if (!agent || agent.role !== 'agent') {
+            return res.status(400).json({ message: 'Agent invalide' });
+        }
+
+        // Mettre à jour le ticket avec l'agent assigné
+        const updatedTicket = await Ticket.findByIdAndUpdate(
+            ticketId,
+            { assignedTo: agentId, status: 'En cours' },
+            { new: true }
+        ).populate('assignedTo', 'name email');
 
         if (!updatedTicket) {
             return res.status(404).json({ message: 'Ticket non trouvé' });

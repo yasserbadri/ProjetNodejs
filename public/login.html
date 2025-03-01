@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connexion</title>
+</head>
+<body>
+    <h1>Se connecter</h1>
+    <form id="loginForm">
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
+        <br><br>
+        <label for="password">Mot de passe:</label>
+        <input type="password" id="password" name="password" required>
+        <br><br>
+        <button type="submit">Se connecter</button>
+    </form>
+    <p>Pas encore inscrit ? <a href="/register.html">S'inscrire ici</a></p>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                // Stocker le token dans le localStorage
+                localStorage.setItem('token', data.token);
+                window.location.href = '/listTicket.html'; // Rediriger vers la page de tickets
+            } else {
+                alert(data.message);
+            }
+        });
+    </script>
+</body>
+</html>

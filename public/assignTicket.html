@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attribuer un Ticket à un Agent</title>
+</head>
+<body>
+    <h1>Attribuer un Ticket à un Agent</h1>
+
+    <!-- Formulaire pour choisir un ticket et un agent -->
+    <form id="assignTicketForm">
+        <label for="ticket">Choisir un ticket:</label>
+        <select id="ticket" name="ticket" required>
+            <!-- Les tickets seront ajoutés ici par JavaScript -->
+        </select>
+        <br><br>
+        
+        <label for="agent">Choisir un agent:</label>
+        <select id="agent" name="agent" required>
+            <!-- Les agents seront ajoutés ici par JavaScript -->
+        </select>
+        <br><br>
+        
+        <button type="submit">Attribuer le ticket</button>
+    </form>
+
+    <script>
+        // Vérifier si un token est présent
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert("Vous devez être connecté pour attribuer des tickets.");
+            window.location.href = '/login.html'; // Rediriger vers la page de login
+        }
+
+        // Charger les tickets non attribués
+        async function loadTickets() {
+            const response = await fetch('/api/tickets?status=non_attribue', {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+
+            if (response.ok) {
+                const tickets = await response.json();
+                const ticketSelect = document.getElementById('ticket');
+                tickets.forEach(ticket => {
+                    const option = document.createElement('option');
+                    option.value = ticket.id;
+                    option.textContent = `${ticket.title} (${ticket.description})`;
+                    ticketSelect.appendChild(option);
+                });
+            } else {
+                alert("Erreur lors de la récupération des tickets.");
+            }
+        }
+
+        // Charger les agents disponibles
+        async function loadAgents() {
+            const response = await fetch('/api/users/agents', {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                }
+            });
+
+            if (response.ok) {
+                const agents = await response.json();
+                const agentSelect = document.getElementById('agent');
+                agentSelect.innerHTML = ''; // Nettoyer avant d'ajouter des options
+
+                agents.forEach(agent => {
+                    const option = document.createElement('option');
+                    option.value = agent._id;
+                    option.textContent = agent.name;
+                    agentSelect.appendChild(option);
+                });
+            } else {
+                alert("Erreur lors de la récupération des agents.");
+            }
+        }
+
+        // Fonction pour attribuer le ticket à un agent
+        document.getElementById('assignTicketForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const ticketId = document.getElementById('ticket').value;
+            const agentId = document.getElementById('agent').value;
+
+            const response = await fetch(`/api/tickets/${ticketId}/assign`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({ agentId })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert('Ticket attribué avec succès');
+                window.location.href = '/listTicket.html'; // Rediriger vers la liste des tickets
+            } else {
+                alert(data.message || "Erreur lors de l'attribution du ticket.");
+            }
+        });
+
+        // Charger les tickets et les agents au démarrage
+        loadTickets();
+        loadAgents();
+    </script>
+</body>
+</html>

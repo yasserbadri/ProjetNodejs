@@ -13,6 +13,7 @@ const authenticateToken = require('./middleware/auth'); // Import the middleware
 const Ticket = require('./models/Ticket'); // Importez le modèle Ticket
 const userRoutes = require('./routes/user'); // Importer les routes utilisateur
 
+
 // Configuration
 dotenv.config();
 const app = express();
@@ -136,3 +137,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Serveur démarré sur le port ${PORT}`));
 
 
+app.use(express.static('public'));

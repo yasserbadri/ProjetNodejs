@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des Tickets</title>
+</head>
+<body>
+    <h1>Liste des Tickets</h1>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Titre</th>
+                <th>Description</th>
+                <th>Statut</th>
+                <th>Créé par</th>
+            </tr>
+        </thead>
+        <tbody id="ticketTable">
+            <!-- Les tickets seront ajoutés ici par JavaScript -->
+        </tbody>
+    </table>
+
+    <script>
+        // Vérifier si un token est présent
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert("Vous devez être connecté pour voir les tickets.");
+            window.location.href = '/login.html'; // Rediriger vers la page de login
+        }
+
+        // Appel à l'API pour récupérer les tickets
+        fetch('/api/tickets', {
+            method: 'GET',
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        })
+        .then(response => response.json())
+        .then(tickets => {
+            const ticketTable = document.getElementById('ticketTable');
+            tickets.forEach(ticket => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${ticket.title}</td>
+                    <td>${ticket.description}</td>
+                    <td>${ticket.status}</td>
+                    <td>${ticket.createdBy.name}</td>
+                `;
+                ticketTable.appendChild(row);
+            });
+        })
+        .catch(error => console.error('Erreur:', error));
+    </script>
+</body>
+</html>
