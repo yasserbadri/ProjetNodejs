@@ -3,6 +3,8 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { authenticateToken,isAdmin,isAgentOrAdmin} = require('../middleware/auth'); // Middleware d'authentification
+
 
 /*// Route d'inscription
 router.post('/register', async (req, res) => {
@@ -22,14 +24,14 @@ router.post('/register', async (req, res) => {
 });*/
 router.post('/register', async (req, res) => {
     try {
-        const { name, email, password, role } = req.body;
+        const { name, email, password/*, role*/ } = req.body;
 
-        if (!role) {
+      /*  if (!role) {
             return res.status(400).json({ message: "Le rôle est requis" });
         }
-
+*/
         const hashedPassword = await bcrypt.hash(password, 10);
-        const newUser = new User({ name, email, password: hashedPassword, role });
+        const newUser = new User({ name, email, password: hashedPassword/*, role*/ });
 
         await newUser.save();
         res.status(201).json({ message: 'Utilisateur créé', user: newUser });
@@ -52,6 +54,26 @@ router.post('/login', async (req, res) => {
         res.json({ token });
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+});
+
+// Route pour obtenir les informations de l'utilisateur connecté
+router.get('/me', authenticateToken,isAgentOrAdmin, async (req, res) => {
+    try {
+        // Recherche de l'utilisateur dans la base de données par ID
+        const user = await User.findById(req.user.id); // On suppose que le JWT contient un `id` de l'utilisateur
+        if (!user) {
+            return res.status(404).json({ message: "Utilisateur non trouvé" });
+        }
+        res.json({
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            // Ajoutez d'autres informations selon les besoins
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Erreur serveur" });
     }
 });
 

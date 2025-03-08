@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const Ticket = require('../models/Ticket'); // Assure-toi que ce fichier existe
-const authenticateToken = require('../middleware/auth'); // Middleware d'authentification
+const { authenticateToken,isAdmin,isAgentOrAdmin} = require('../middleware/auth'); // Middleware d'authentification
 const User = require('../models/User');
 
 // Créer un ticket
-router.post('/api/tickets', authenticateToken, async (req, res) => {
+router.post('/api/tickets', authenticateToken,isAgentOrAdmin, async (req, res) => {
     try {
         const { title, description } = req.body;
         const newTicket = new Ticket({
@@ -21,7 +21,7 @@ router.post('/api/tickets', authenticateToken, async (req, res) => {
 });
 
 // Récupérer tous les tickets
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken,isAgentOrAdmin, async (req, res) => {
     try {
         const tickets = await Ticket.find().populate('createdBy', 'name email');
         res.json(tickets);
@@ -31,7 +31,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Mettre à jour un ticket
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticateToken,isAgentOrAdmin, async (req, res) => {
     try {
         const { status, assignedTo } = req.body;
         const updatedTicket = await Ticket.findByIdAndUpdate(req.params.id, { status, assignedTo }, { new: true });
@@ -43,7 +43,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Supprimer un ticket
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticateToken, isAdmin ,async (req, res) => {
     try {
         const deletedTicket = await Ticket.findByIdAndDelete(req.params.id);
         if (!deletedTicket) return res.status(404).json({ message: 'Ticket non trouvé' });
@@ -83,6 +83,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 */
 
+
 router.put('/:id/assign', authenticateToken, async (req, res) => {
     try {
         const { agentId } = req.body;
@@ -114,7 +115,8 @@ router.put('/:id/assign', authenticateToken, async (req, res) => {
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
-});
-
-
+    
+  } );
 module.exports = router;
+
+

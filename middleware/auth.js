@@ -38,5 +38,21 @@ const authenticateToken = async (req, res, next) => {
         res.status(401).json({ message: 'Token invalide' });
     }
 };
+// Middleware pour restreindre aux admins seulement
+function isAdmin(req, res, next) {
+    if (req.user.role !== "admin") {
+        return res.status(403).json({ message: "Accès refusé. Vous devez être administrateur." });
+    }
+    next();
+}
 
-module.exports = authenticateToken;
+// Middleware pour les agents et admins
+function isAgentOrAdmin(req, res, next) {
+    if (req.user.role !== "admin" && req.user.role !== "agent") {
+        return res.status(403).json({ message: "Accès refusé." });
+    }
+    next();
+}
+
+
+module.exports = {authenticateToken,isAdmin,isAgentOrAdmin};

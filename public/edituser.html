@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gérer les Rôles - Support Ticket</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f3f3f3; }
+        .container-custom {
+            max-width: 800px;
+            margin-top: 50px;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .btn-custom {
+            background-color: #6a0dad;
+            color: white;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .btn-custom:hover { background-color: #5a0ba0; }
+        .navbar { background-color: #6a0dad !important; }
+        .navbar a { color: white !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Support Ticket</a>
+            <button class="btn btn-light btn-sm" onclick="logout()">Déconnexion</button>
+        </div>
+    </nav>
+
+    <div class="container container-custom text-center">
+        <h2 class="mb-4" style="color: #6a0dad;">Gestion des Rôles 🔧</h2>
+        <p>Modifier les rôles des utilisateurs.</p>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nom</th>
+                    <th>Email</th>
+                    <th>Rôle</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="userTable">
+                <tr><td colspan="5">Chargement...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function fetchUsers() {
+            const response = await fetch('api/users/all-users', {
+                headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+            });
+            const table = document.getElementById('userTable');
+            table.innerHTML = '';
+
+            if (response.ok) {
+                const users = await response.json();
+                if (users.length === 0) {
+                    table.innerHTML = "<tr><td colspan='5'>Aucun utilisateur trouvé.</td></tr>";
+                } else {
+                    users.forEach(user => {
+                        const row = `<tr>
+                            <td>${user._id}</td>
+                            <td>${user.name}</td>
+                            <td>${user.email}</td>
+                            <td>
+                                <select onchange="updateRole('${user._id}', this.value)" class="form-select">
+                                    <option value="user" ${user.role === 'user' ? 'selected' : ''}>Utilisateur</option>
+                                    <option value="agent" ${user.role === 'agent' ? 'selected' : ''}>Agent</option>
+                                    <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>Administrateur</option>
+                                </select>
+                            </td>
+                            <td><button class="btn btn-custom btn-sm" onclick="updateRole('${user._id}', document.querySelector('[value='+user.role+']').value)">Modifier</button>
+                                <button class="btn btn-danger btn-sm" onclick="deleteUser('${user._id}')">Supprimer</button>
+                                </td>
+                        </tr>`;
+                        table.innerHTML += row;
+                    });
+                }
+            } else {
+                table.innerHTML = "<tr><td colspan='5'>Erreur de chargement.</td></tr>";
+            }
+        }
+
+        async function updateRole(userId, newRole) {
+            const response = await fetch(`api/users/update-role/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + localStorage.getItem('token')
+                },
+                body: JSON.stringify({ role: newRole })
+            });
+            if (response.ok) {
+                alert("Rôle mis à jour avec succès !");
+                fetchUsers();
+            } else {
+                alert("Erreur lors de la mise à jour du rôle.");
+            }
+        }
+
+        async function deleteUser(userId) {
+    if (!confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
+        return;
+    }
+
+    const response = await fetch(`api/users/delete-user/${userId}`, {
+        method: 'DELETE',
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('token')
+        }
+    });
+
+    if (response.ok) {
+        alert("Utilisateur supprimé avec succès !");
+        fetchUsers(); // Rafraîchir la liste
+    } else {
+        alert("Erreur lors de la suppression de l'utilisateur.");
+    }
+}
+
+        function logout() {
+            localStorage.removeItem('token');
+            window.location.href = '/login.html';
+        }
+
+        fetchUsers();
+    </script>
+</body>
+</html>
