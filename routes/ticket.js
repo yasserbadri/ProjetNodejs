@@ -21,9 +21,48 @@ router.post('/api/tickets', authenticateToken,isAgentOrAdmin, async (req, res) =
 });
 
 // Récupérer tous les tickets
-router.get('/', authenticateToken,isAgentOrAdmin, async (req, res) => {
+// Récupérer les tickets selon le rôle de l'utilisateur
+router.get('/', authenticateToken, async (req, res) => {
     try {
-        const tickets = await Ticket.find().populate('createdBy', 'name email');
+        let query = {};
+        
+        // Si c'est un utilisateur normal, il ne voit que ses tickets
+        if (req.user.role === 'user') {
+            query = { createdBy: req.user.id };
+        } 
+        // Si c'est un agent, il voit ses tickets assignés
+        else if (req.user.role === 'agent') {
+            query = { assignedTo: req.user.id };
+        }
+        // Si c'est un admin, il peut voir tous les tickets (pas de filtre)
+        
+        // Appliquer des filtres supplémentaires si fournis dans la requête
+        if (req.query.status === "non_attribue") {
+            query.assignedTo = null;
+        }
+
+        const tickets = await Ticket.find(query)
+            .populate('createdBy', 'name email')
+            .populate('assignedTo', 'name email');
+            
+        res.json(tickets);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// Récupérer les tickets d'un utilisateur spécifique
+router.get('/user/:userId', authenticateToken, async (req, res) => {
+    try {
+        // Vérifier si l'utilisateur demande ses propres tickets ou si c'est un admin
+        if (req.params.userId !== req.user.id && req.user.role !== 'admin') {
+            return res.status(403).json({ message: "Vous n'êtes pas autorisé à voir les tickets d'autres utilisateurs" });
+        }
+        
+        const tickets = await Ticket.find({ createdBy: req.params.userId })
+            .populate('createdBy', 'name email')
+            .populate('assignedTo', 'name email');
+            
         res.json(tickets);
     } catch (err) {
         res.status(500).json({ message: err.message });

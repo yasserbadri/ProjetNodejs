@@ -127,27 +127,32 @@
             e.preventDefault();
             const ticketId = document.getElementById('ticket').value;
             const agentId = document.getElementById('agent').value;
-
+        
             if (!ticketId || !agentId) {
                 alert("Veuillez sélectionner un ticket et un agent.");
                 return;
             }
-
-            const response = await fetch(`/api/tickets/${ticketId}/assign`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token
-                },
-                body: JSON.stringify({ agentId })
-            });
-
-            const data = await response.json();
-            if (response.ok) {
-                alert('✅ Ticket attribué avec succès !');
-                window.location.href = '/listTicket.html';
-            } else {
-                alert('❌ Erreur : ' + (data.message || "Erreur lors de l'attribution du ticket."));
+        
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}/assign`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + token
+                    },
+                    body: JSON.stringify({ agentId })
+                });
+        
+                const data = await response.json();
+                if (response.ok) {
+                    alert('✅ Ticket attribué avec succès ! Une notification a été envoyée à l\'agent.');
+                    window.location.href = '/listTicket.html';
+                } else {
+                    alert('❌ Erreur : ' + (data.message || "Erreur lors de l'attribution du ticket."));
+                }
+            } catch (error) {
+                console.error("Erreur:", error);
+                alert('❌ Une erreur est survenue lors de l\'attribution du ticket.');
             }
         });
 

@@ -3,20 +3,21 @@ const express = require('express');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
+const fetch = require('node-fetch');
 const User = require('./models/User');
 const Ticket = require('./models/Ticket');
 const authRoutes = require('./routes/auth');
 const ticketRoutes = require('./routes/ticket');
 const userRoutes = require('./routes/user');
-const {authenticateToken,isAdmin,isAgentOrAdmin} = require('./middleware/auth'); // Middleware d'authentification
+const dashboardRoutes = require('./routes/dashboard');
+const { authenticateToken, isAdmin, isAgentOrAdmin } = require('./middleware/auth');
 
 // Configuration
 dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors());
-app.use(express.static('public')); // Servir les fichiers statiques
+app.use(express.static('public'));
 
 // Connexion à MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -25,31 +26,55 @@ mongoose.connect(process.env.MONGO_URI, {
 }).then(() => console.log('MongoDB connecté'))
   .catch(err => console.error('Erreur de connexion MongoDB:', err));
 
-// Configuration du transporteur d'e-mails
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
-
-// Fonction d'envoi d'e-mail
-const sendEmailNotification = async (to, subject, text) => {
+// Fonction d'envoi de notification par e-mail avec EmailJS
+async function sendEmailNotification(to_email, to_name, ticket) {
     try {
-        await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to,
-            subject,
-            text
+        const url = 'https://api.emailjs.com/api/v1.0/email/send';
+        const data = {
+            service_id: process.env.EMAILJS_SERVICE_ID,
+            template_id: process.env.EMAILJS_TEMPLATE_ID,
+            user_id: process.env.EMAILJS_PUBLIC_KEY,
+            accessToken: process.env.EMAILJS_PRIVATE_KEY,
+            template_params: {
+                to_name: to_name,
+                from_name: 'Support System',
+                ticket_title: ticket.title,
+                ticket_description: ticket.description,
+                ticket_status: ticket.status,
+                ticket_id: ticket._id,
+                to_email: to_email,
+                reply_to: 'support@example.com'
+            }
+        };
+
+        console.log('Sending email notification to:', to_email);
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Origin': 'http://localhost'
+            },
+            body: JSON.stringify(data)
         });
+
+        if (response.ok) {
+            const responseText = await response.text();
+            console.log('Email sent successfully. Response:', responseText);
+            return true;
+        } else {
+            const errorText = await response.text();
+            console.error('Failed to send email:', response.status, errorText);
+            return false;
+        }
     } catch (error) {
-        console.error('Erreur lors de l\'envoi de l\'e-mail:', error);
+        console.error('Error sending email:', error);
+        return false;
     }
-};
+}
 
 // Tableau de bord
-app.get('/api/dashboard', authenticateToken,isAdmin, async (req, res) => {
+app.get('/api/dashboard', authenticateToken, isAdmin, async (req, res) => {
     try {
         const totalTickets = await Ticket.countDocuments();
         const openTickets = await Ticket.countDocuments({ status: 'Ouvert' });
@@ -61,20 +86,14 @@ app.get('/api/dashboard', authenticateToken,isAdmin, async (req, res) => {
     }
 });
 
-// Routes des tickets
-app.post('/api/tickets', authenticateToken,isAgentOrAdmin, async (req, res) => {
+// Création de ticket
+app.post('/api/tickets', authenticateToken, isAgentOrAdmin, async (req, res) => {
     try {
         const { title, description } = req.body;
         if (!title || !description) {
             return res.status(400).json({ message: 'Titre et description requis' });
         }
-
-        const newTicket = new Ticket({
-            title,
-            description,
-            createdBy: req.user.id
-        });
-
+        const newTicket = new Ticket({ title, description, createdBy: req.user.id });
         await newTicket.save();
         res.status(201).json(newTicket);
     } catch (err) {
@@ -83,136 +102,108 @@ app.post('/api/tickets', authenticateToken,isAgentOrAdmin, async (req, res) => {
 });
 
 // Récupération des tickets avec option de filtrage
-app.get('/api/tickets', authenticateToken, isAgentOrAdmin,async (req, res) => {
+app.get('/api/tickets', authenticateToken, async (req, res) => {
     try {
         const { status } = req.query;
         let query = {};
-        if (status === "non_attribue") {
-            query.agent = null;
+        
+        // Filtrer les tickets selon le rôle de l'utilisateur
+        if (req.user.role === 'user') {
+            query.createdBy = req.user.id;
+        } else if (req.user.role === 'agent') {
+            query.assignedTo = req.user.id;
         }
-
-        const tickets = await Ticket.find(query).populate('createdBy', 'name email');
+        // Les admins peuvent voir tous les tickets
+        
+        // Appliquer des filtres supplémentaires
+        if (status === "non_attribue") {
+            query.assignedTo = null;
+        }
+        
+        const tickets = await Ticket.find(query)
+            .populate('createdBy', 'name email')
+            .populate('assignedTo', 'name email');
+            
         res.json(tickets);
     } catch (err) {
+        console.error(err);
         res.status(500).json({ message: 'Erreur lors de la récupération des tickets' });
     }
 });
 
 // Assignation d'un ticket à un agent
-app.post("/api/tickets/:id/assign", authenticateToken,isAdmin, async (req, res) => {
-    console.log("ID du ticket reçu :", req.params.id); // Ajout pour debug
-
-    if (req.user.role !== "admin") {
-        return res.status(403).json({ message: "Accès interdit" });
-    }
-
+app.put('/api/tickets/:id/assign', authenticateToken, isAdmin, async (req, res) => {
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
             return res.status(400).json({ message: "ID de ticket invalide" });
         }
+        
         const { agentId } = req.body;
-        const ticket = await Ticket.findById(req.params.id);
-        if (!ticket) {
-            return res.status(404).json({ message: "Ticket non trouvé" });
-        }
-
+        
+        // Vérifier si l'agent existe et a le rôle "agent"
         const agent = await User.findById(agentId);
-        if (!agent) {
-            return res.status(404).json({ message: "Agent non trouvé" });
+        if (!agent || agent.role !== 'agent') {
+            return res.status(400).json({ message: 'Agent invalide' });
         }
-console.log("ID de l'agent reçu :", agentId); // Ajout pour debug
-        ticket.agent = agentId;
-        await ticket.save();
-
-        // Envoi d'un email à l'agent
-        await sendEmailNotification(agent.email, "Nouveau ticket assigné",
-            `Bonjour ${agent.name},\nUn nouveau ticket vous a été assigné : ${ticket.title}`);
-
-        res.json({ message: "Ticket assigné et notification envoyée" });
-    } catch (err) {
-        res.status(500).json({ message: "Erreur lors de l'assignation du ticket" });
-    }
-});
-
-// Mise à jour d'un ticket
-app.put('/api/tickets/:id', authenticateToken, isAgentOrAdmin,async (req, res) => {
-    try {
-        const { status, assignedTo } = req.body;
-
-        const updatedTicket = await Ticket.findByIdAndUpdate(
+        
+        // Mettre à jour le ticket avec l'agent assigné
+        const ticket = await Ticket.findByIdAndUpdate(
             req.params.id,
-            { status, assignedTo },
+            { assignedTo: agentId, status: 'En cours' },
             { new: true }
         );
-
-        if (!updatedTicket) {
+        
+        if (!ticket) {
             return res.status(404).json({ message: 'Ticket non trouvé' });
         }
 
-        // Notification par e-mail en cas de mise à jour du statut
-        if (status) {
-            const user = await User.findById(updatedTicket.createdBy);
-            if (user) {
-                await sendEmailNotification(user.email, 'Mise à jour du ticket',
-                    `Le statut de votre ticket "${updatedTicket.title}" a été mis à jour à : ${status}.`);
-            }
+        // Envoyer une notification par email à l'agent
+        try {
+            await sendEmailNotification(agent.email, agent.name, ticket);
+            console.log(`Notification envoyée à ${agent.email}`);
+            res.json({ 
+                message: "Ticket assigné et notification envoyée", 
+                ticket 
+            });
+        } catch (emailError) {
+            console.error("Erreur d'envoi d'email:", emailError);
+            res.json({ 
+                message: "Ticket assigné mais échec de notification", 
+                ticket, 
+                emailError: emailError.message 
+            });
         }
-
-        res.json(updatedTicket);
     } catch (err) {
-        res.status(500).json({ message: err.message });
+        console.error("Erreur d'assignation:", err);
+        res.status(500).json({ message: "Erreur lors de l'assignation du ticket", error: err.message });
     }
 });
 
 // Suppression d'un ticket
-app.delete('/api/tickets/:id', authenticateToken,isAgentOrAdmin, async (req, res) => {
+app.delete('/api/tickets/:id', authenticateToken, isAgentOrAdmin, async (req, res) => {
     try {
         const deletedTicket = await Ticket.findByIdAndDelete(req.params.id);
-        if (!deletedTicket) {
-            return res.status(404).json({ message: 'Ticket non trouvé' });
-        }
+        if (!deletedTicket) return res.status(404).json({ message: 'Ticket non trouvé' });
         res.json({ message: 'Ticket supprimé' });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
-app.put("/api/tickets/:id/assign", authenticateToken, async (req, res) => {
-    console.log("ID reçu :", req.params.id); // Ajoute ceci pour voir l'ID reçu
 
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-        return res.status(400).json({ message: "ID du ticket invalide" });
-    }
-
-    const ticket = await Ticket.findById(req.params.id);
-    if (!ticket) {
-        return res.status(404).json({ message: "Ticket non trouvé" });
-    }
-
-    const { agentId } = req.body;
-    if (!mongoose.Types.ObjectId.isValid(agentId)) {
-        return res.status(400).json({ message: "ID de l'agent invalide" });
-    }
-
-    ticket.agent = agentId;
-    await ticket.save();
-    res.json({ message: "Ticket attribué avec succès", ticket });
-});
-// Exemple avec Express et MongoDB
-app.get('/api/tickets/user/:userId', async (req, res) => {
+// Test d'envoi d'email
+app.post('/api/test-email', authenticateToken, isAdmin, async (req, res) => {
     try {
-        const tickets = await Ticket.find({ createdBy: req.params.userId });
-        res.json(tickets);
-    } catch (err) {
-        res.status(500).json({ message: "Erreur serveur" });
+        await sendEmailNotification(req.body.testEmail, "Test User", { title: "Test", description: "Ceci est un test", status: "Test", _id: "12345" });
+        res.json({ message: "Email de test envoyé avec succès" });
+    } catch (error) {
+        res.status(500).json({ message: "Échec de l'envoi de l'email de test", error: error.message });
     }
 });
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/tickets', authenticateToken, isAgentOrAdmin,ticketRoutes);
+app.use('/api/tickets', authenticateToken, isAgentOrAdmin, ticketRoutes);
 app.use('/api/users', userRoutes);
-const dashboardRoutes = require('./routes/dashboard');
-
 app.use('/api', dashboardRoutes);
 
 // Démarrage du serveur

@@ -1,0 +1,73 @@
+name Solo
+
+Mail: sDDS@gmail.com
+
+pass: sed2000
+
+************************
+wokebag246@oziere.com
+pass : woke
+
+
+
+
+temp mail : nevape1901@oziere.com
+
+pass :  nevape
+
+
+
+
+*****************
+
+NodeJsProject000@outlook.com
+
+@KDDJZSD2000sS
+
+
+
+
+
+
+*******************
+0User
+
+pass : yhzIbndB5r7gj08n
+
+
+Geestion ticket
+
+
+ali1999920001
+
+byeTk3YedqsUMNlI
+
+***********
+
+**************************************************
+
+email js :
+
+passDes signet in with ali
+
+
+Name  : Outlook
+
+
+EMAILJS_SERVICE_ID: service_0j18uxl
+
+
+
+
+
+
+
+
+Hello {{to_name}},
+
+You got a new message from {{from_name}}:
+
+{{message}}
+
+Best wishes,
+EmailJS team
