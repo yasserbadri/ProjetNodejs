@@ -117,6 +117,25 @@ router.put('/:id/assign', authenticateToken, async (req, res) => {
     }
     
   } );
+
+  // Route pour récupérer les tickets assignés à un agent
+router.get('/assigned', authenticateToken, async (req, res) => {
+    try {
+        // Rechercher tous les tickets où l'agent est assigné
+        const tickets = await Ticket.find({ assignedTo: req.user.id })
+            .populate('assignedTo', 'name email') // Remplir les détails de l'agent
+            .populate('createdBy', 'name email'); // Remplir les détails de la personne qui a créé le ticket
+
+        if (tickets.length === 0) {
+            return res.status(404).json({ message: "Aucun ticket assigné" });
+        }
+
+        res.json(tickets);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Erreur serveur" });
+    }
+});
 module.exports = router;
 
 

@@ -143,6 +143,43 @@ function formatStatus(status) {
     return statusMap[status] || status;
 }
 
+// Charger les tickets assignés à l'agent
+async function loadAssignedTickets() {
+    try {
+        const response = await fetch('/api/tickets/assigned', {
+            method: 'GET',
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+
+        if (!response.ok) {
+            throw new Error("Erreur lors de la récupération des tickets.");
+        }
+
+        const tickets = await response.json();
+        const ticketTable = document.getElementById('ticketTable');
+        ticketTable.innerHTML = ''; // Nettoyer avant d'ajouter les tickets
+
+        if (tickets.length === 0) {
+            ticketTable.innerHTML = `<tr><td colspan="4" class="text-center text-muted">Aucun ticket assigné.</td></tr>`;
+            return;
+        }
+
+        tickets.forEach(ticket => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${ticket.title}</td>
+                <td>${ticket.description}</td>
+                <td>${formatStatus(ticket.status)}</td>
+                <td>${ticket.createdBy?.name || "Inconnu"}</td>
+            `;
+            ticketTable.appendChild(row);
+        });
+    } catch (error) {
+        console.error("Erreur:", error);
+        alert("❌ Impossible de charger les tickets.");
+    }
+}
+
 // Déconnexion
 function logout() {
     localStorage.removeItem('token');
@@ -151,6 +188,8 @@ function logout() {
 
 // Charger les tickets au démarrage
 loadTickets();
+loadAssignedTickets();
+
     </script>
     
 
