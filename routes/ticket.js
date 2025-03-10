@@ -3,6 +3,9 @@ const router = express.Router();
 const Ticket = require('../models/Ticket'); // Assure-toi que ce fichier existe
 const { authenticateToken,isAdmin,isAgentOrAdmin} = require('../middleware/auth'); // Middleware d'authentification
 const User = require('../models/User');
+const sendEmail = require('../utils/emailService');
+require('dotenv').config(); // 👈 Charge les variables d'environnement
+
 
 // Créer un ticket
 router.post('/api/tickets', authenticateToken,isAgentOrAdmin, async (req, res) => {
@@ -14,10 +17,21 @@ router.post('/api/tickets', authenticateToken,isAgentOrAdmin, async (req, res) =
             createdBy: req.user.id
         });
         await newTicket.save();
+        // Envoi de l'email (à l'agent, ou à l'utilisateur concerné)
+ const user = await User.findById(req.user.id); // L'utilisateur qui a créé le ticket
+ await sendEmail(
+     user.email,
+     "Ticket créé avec succès",
+     `Bonjour ${user.name},\n\nVotre ticket a été créé avec succès !\n\nTitre: ${newTicket.title}\nDescription: ${newTicket.description}\n\nMerci,\nL'équipe Support.`
+ );
         res.status(201).json(newTicket);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
+
+ 
+       
+
 });
 
 // Récupérer tous les tickets
@@ -53,35 +67,7 @@ router.delete('/:id', authenticateToken, isAdmin ,async (req, res) => {
     }
 });
 
-// Attribuer un ticket à un agent de support
-/*router.put('/:id/assign', authenticateToken, async (req, res) => {
-    try {
-        const { agentId } = req.body; // ID de l'agent de support
-        const ticketId = req.params.id; // ID du ticket
 
-        // Vérifier si l'agent existe et a le rôle "agent"
-        const agent = await User.findById(agentId);
-        if (!agent || agent.role !== 'agent') {
-            return res.status(400).json({ message: 'Agent invalide' });
-        }
-
-        // Mettre à jour le ticket avec l'agent assigné
-        const updatedTicket = await Ticket.findByIdAndUpdate(
-            ticketId,
-            { assignedTo: agentId, status: 'En cours' }, // Mettre à jour le statut également
-            { new: true }
-        ).populate('assignedTo', 'name email'); // Récupérer les détails de l'agent
-
-        if (!updatedTicket) {
-            return res.status(404).json({ message: 'Ticket non trouvé' });
-        }
-
-        res.json(updatedTicket);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
-});
-*/
 
 
 router.put('/:id/assign', authenticateToken, async (req, res) => {
@@ -111,6 +97,10 @@ router.put('/:id/assign', authenticateToken, async (req, res) => {
             return res.status(404).json({ message: 'Ticket non trouvé' });
         }
 
+       
+
+
+
         res.json(updatedTicket);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -118,12 +108,17 @@ router.put('/:id/assign', authenticateToken, async (req, res) => {
     
   } );
 
-  // Route pour récupérer les tickets assignés à un agent
-router.get('/assigned', authenticateToken, async (req, res) => {
+  // Récupérer les tickets assignés à l'agent connecté
+router.get('/assigned', authenticateToken, isAgentOrAdmin,async (req, res) => {
     try {
+        // Vérifiez si l'utilisateur est un agent
+        if (req.user.role !== 'agent') {
+            return res.status(403).json({ message: "Accès réservé aux agents" });
+        }
+
         // Rechercher tous les tickets où l'agent est assigné
         const tickets = await Ticket.find({ assignedTo: req.user.id })
-            .populate('assignedTo', 'name email') // Remplir les détails de l'agent
+            .populate('assignedTo', 'name email')  // Remplir les détails de l'agent
             .populate('createdBy', 'name email'); // Remplir les détails de la personne qui a créé le ticket
 
         if (tickets.length === 0) {
@@ -131,11 +126,11 @@ router.get('/assigned', authenticateToken, async (req, res) => {
         }
 
         res.json(tickets);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Erreur serveur" });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
     }
 });
+
 module.exports = router;
 
 

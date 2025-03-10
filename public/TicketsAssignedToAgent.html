@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des Tickets</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f3f3f3;
+        }
+        .container-custom {
+            max-width: 900px;
+            margin-top: 50px;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .btn-custom {
+            background-color: #6a0dad;
+            color: white;
+            border-radius: 8px;
+        }
+        .btn-custom:hover {
+            background-color: #5a0ba0;
+        }
+        .navbar {
+            background-color: #6a0dad !important;
+        }
+        .navbar a {
+            color: white !important;
+        }
+        .table-hover tbody tr:hover {
+            background-color: #f0e6ff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="home.html">Support Ticket</a>
+            <button class="btn btn-light btn-sm" onclick="logout()">Déconnexion</button>
+        </div>
+    </nav>
+
+    <div class="container container-custom">
+        <h2 class="text-center mb-4" style="color: #6a0dad;">📋 Liste des Tickets</h2>
+
+        <table class="table table-bordered table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Titre</th>
+                    <th>Description</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody id="ticketTable">
+                <!-- Les tickets seront insérés ici -->
+            </tbody>
+        </table>
+
+        <a href="createTicket.html" class="btn btn-custom w-100 mt-3">➕ Créer un nouveau Ticket</a>
+    </div>
+     <!-- Bootstrap JS -->
+     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+     <script>
+        // Vérifier si un token est présent
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert("Vous devez être connecté pour voir les tickets.");
+            window.location.href = '/login.html'; // Rediriger vers la page de login si non connecté
+        }
+    
+        // Fonction pour charger les tickets assignés
+        async function loadAssignedTickets() {
+            try {
+                const response = await fetch('/api/tickets/assigned', {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + token // Assurez-vous que le token est correctement passé
+                    }
+                });
+    
+                if (!response.ok) {
+                    throw new Error("Erreur lors de la récupération des tickets.");
+                }
+    
+                const tickets = await response.json();
+                const ticketTable = document.getElementById('ticketTable');
+                ticketTable.innerHTML = ''; // Nettoyer avant d'ajouter les tickets
+    
+                if (tickets.length === 0) {
+                    ticketTable.innerHTML = `<tr><td colspan="3" class="text-center text-muted">Aucun ticket assigné.</td></tr>`;
+                    return;
+                }
+    
+                // Ajouter chaque ticket dans le tableau
+                tickets.forEach(ticket => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${ticket.title}</td>
+                        <td>${ticket.description}</td>
+                        <td>${ticket.status}</td>
+                    `;
+                    ticketTable.appendChild(row);
+                });
+            } catch (error) {
+                console.error("Erreur:", error);
+                alert("❌ Impossible de charger les tickets.");
+            }
+        }
+    
+        // Charger les tickets assignés au démarrage
+        loadAssignedTickets();
+    </script>
+</body>
+</html>

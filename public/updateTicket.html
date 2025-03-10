@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Modifier le statut du ticket</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+        }
+        .form-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        label, select, button {
+            display: block;
+            margin: 10px 0;
+            width: 100%;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .ticket-info {
+            margin-bottom: 20px;
+        }
+        .ticket-info p {
+            font-size: 1.1em;
+        }
+        .message {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <h1>Modifier le statut du ticket</h1>
+
+    <div class="form-container">
+        <div class="ticket-info">
+            <p><strong>ID du ticket :</strong> <span id="ticketId"></span></p>
+            <p><strong>Titre :</strong> <span id="ticketTitle"></span></p>
+            <p><strong>Description :</strong> <span id="ticketDescription"></span></p>
+        </div>
+
+        <form id="updateTicketForm">
+            <label for="status">Statut :</label>
+            <select id="status" required>
+                <option value="Ouvert">Ouvert</option>
+                <option value="En cours">En cours</option>
+                <option value="Fermé">Fermé</option>
+            </select>
+
+            <button type="submit">Mettre à jour le statut</button>
+        </form>
+
+        <div class="message" id="message"></div>
+    </div>
+
+    <script>
+        fetch('/api/tickets', {
+    method: 'GET',
+    headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`
+    }
+})
+.then(response => response.json())
+.then(tickets => {
+    const ticketContainer = document.getElementById('ticket-list');
+    ticketContainer.innerHTML = ''; // Vider la liste avant d'afficher
+
+    tickets.forEach(ticket => {
+        const ticketElement = document.createElement('div');
+        ticketElement.innerHTML = `
+            <h3>${ticket.title}</h3>
+            <p>${ticket.description}</p>
+            <p><strong>Statut:</strong> ${ticket.status}</p>
+            <button onclick="updateTicketStatus('${ticket._id}', 'Fermé')">Fermer</button>
+        `;
+        ticketContainer.appendChild(ticketElement);
+    });
+})
+.catch(error => console.error('Erreur:', error));
+
+function updateTicketStatus(ticketId, newStatus) {
+    fetch(`/api/tickets/${ticketId}/status`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ status: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        alert('Statut mis à jour !');
+        location.reload();
+    })
+    .catch(error => console.error('Erreur:', error));
+}
+        // Fonction pour récupérer les détails du ticket
+        async function getTicketDetails(ticketId) {
+            const token = 'your_jwt_token_here'; // Remplacez par le token JWT de l'utilisateur connecté
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                const ticket = await response.json();
+                if (response.ok) {
+                    // Affichage des informations du ticket
+                    document.getElementById('ticketId').textContent = ticket._id;
+                    document.getElementById('ticketTitle').textContent = ticket.title;
+                    document.getElementById('ticketDescription').textContent = ticket.description;
+                } else {
+                    document.getElementById('message').textContent = ticket.message || 'Erreur inconnue';
+                    document.getElementById('message').style.color = 'red';
+                }
+            } catch (error) {
+                document.getElementById('message').textContent = 'Erreur de connexion à l\'API';
+                document.getElementById('message').style.color = 'red';
+            }
+        }
+
+        // Mettre à jour le statut du ticket
+        document.getElementById('updateTicketForm').addEventListener('submit', async function(event) {
+            event.preventDefault();
+
+            const ticketId = document.getElementById('ticketId').textContent;
+            const status = document.getElementById('status').value;
+
+            const token = localStorage.getItem('token');
+if (!token) {
+    alert("Vous devez être connecté pour voir les tickets.");
+    window.location.href = '/login.html';
+}
+async function loadUserId() {
+    const response = await fetch('/api/auth/me', {
+        method: 'GET',
+        headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    if (!response.ok) {
+        alert("Erreur lors du chargement de l'utilisateur.");
+        window.location.href = '/login.html';
+    }
+
+    const user = await response.json();
+    return user._id; // Retourne l'ID de l'utilisateur
+}
+
+            try {
+                const response = await fetch(`/api/tickets/${ticketId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ status })
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    document.getElementById('message').innerHTML = `<span style="color: green;">${result.message}</span>`;
+                } else {
+                    document.getElementById('message').innerHTML = `<span style="color: red;">${result.message}</span>`;
+                }
+            } catch (error) {
+                document.getElementById('message').innerHTML = `<span style="color: red;">Erreur lors de la mise à jour du statut du ticket.</span>`;
+            }
+        });
+
+        // Appeler la fonction avec l'ID du ticket
+        const ticketId = '1234567890abcdef';  // Remplacez par l'ID du ticket à afficher
+        getTicketDetails(ticketId);
+    </script>
+</body>
+</html>
